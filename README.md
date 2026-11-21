@@ -23,3 +23,5 @@ The report includes disagreements between sources and a gaps and uncertainties s
 ## Settings
 
 Copy .env.example to .env and fill in ANTHROPIC_API_KEY and ANTHROPIC_MODEL. The agent reads .env on startup, and .env is git-ignored.
+
+If your key comes from a third-party or proxy service, also set ANTHROPIC_BASE_URL in .env to that service address. The built-in web_search tool may not be supported by such services.
