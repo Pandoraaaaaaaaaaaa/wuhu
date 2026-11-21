@@ -35,6 +35,8 @@ MAX_SEARCHES = 15
 MAX_PAGE_CHARS = 12000
 MAX_OUTPUT = 20000
 SOURCE_LIST = []
+# Proxy tools in fake-IP mode resolve domains into 198.18.0.0/15, so treat that range as public.
+FAKE_IP_NET = ipaddress.ip_network('198.18.0.0/15')
 
 
 def now():
@@ -117,7 +119,10 @@ def check_public(url):
     if u.scheme not in ('http', 'https') or not u.hostname:
         raise ValueError('only http(s) URLs are allowed')
     for info in socket.getaddrinfo(u.hostname, None):
-        if not ipaddress.ip_address(info[4][0]).is_global:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip in FAKE_IP_NET:
+            continue
+        if not ip.is_global:
             raise ValueError('refusing to fetch a non-public address')
 
 
