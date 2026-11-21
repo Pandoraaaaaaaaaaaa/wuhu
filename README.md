@@ -1,6 +1,6 @@
 # wuhu
 
-A minimal command-line AI agent built on the Anthropic Messages API.
+A command-line research agent built on the Anthropic Messages API. Give it one topic and it searches the web, reads pages, records every source, and writes a cited Markdown report.
 
 ## Setup
 
@@ -9,9 +9,13 @@ A minimal command-line AI agent built on the Anthropic Messages API.
     pip install -r requirements.txt
     export ANTHROPIC_API_KEY=your-key
     export ANTHROPIC_MODEL=your-model-id
-    python agent.py
+    python agent.py 'your research topic'
 
-## Tools
+## How it works
 
-- list_dir, read_file, write_file: limited to the working directory (AGENT_WORKDIR, default is the current folder)
-- run_command: asks for your approval before every command
+1. Splits the topic into sub-questions.
+2. web_search (Anthropic server tool) finds sources; fetch_page reads them in full.
+3. save_source records URL, title, publisher, date, primary or secondary, and an excerpt.
+4. write_report saves reports/<name>.md with inline [n] citations and an auto-generated reference list, plus sources/<name>.json. It rejects reports that cite unsaved sources.
+
+The report includes disagreements between sources and a gaps and uncertainties section. Web search must be enabled for your Anthropic organization.
