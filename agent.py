@@ -10,6 +10,22 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 
+def load_env():
+    f = Path(__file__).resolve().parent / '.env'
+    if not f.exists():
+        return
+    for line in f.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        v = v.strip().strip(chr(34) + chr(39))
+        if v:
+            os.environ.setdefault(k.strip(), v)
+
+
+load_env()
+
 WORKDIR = Path(os.environ.get('AGENT_WORKDIR', '.')).resolve()
 REPORTS = WORKDIR / 'reports'
 SOURCES = WORKDIR / 'sources'

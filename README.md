@@ -19,3 +19,7 @@ A command-line research agent built on the Anthropic Messages API. Give it one t
 4. write_report saves reports/<name>.md with inline [n] citations and an auto-generated reference list, plus sources/<name>.json. It rejects reports that cite unsaved sources.
 
 The report includes disagreements between sources and a gaps and uncertainties section. Web search must be enabled for your Anthropic organization.
+
+## Settings
+
+Copy .env.example to .env and fill in ANTHROPIC_API_KEY and ANTHROPIC_MODEL. The agent reads .env on startup, and .env is git-ignored.
