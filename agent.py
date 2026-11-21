@@ -209,10 +209,89 @@ def execute(name, args):
     return str(out)[:MAX_OUTPUT]
 
 
-def research(client, topic):
-    messages = [{'role': 'user', 'content': 'Research topic: ' + topic}]
+PROFILE_FILE = Path(__file__).resolve().parent / 'profile.md'
+WORKSPACE = WORKDIR / 'workspace'
+
+
+def load_profile():
+    if PROFILE_FILE.exists():
+        t = PROFILE_FILE.read_text(encoding='utf-8').strip()
+        if t:
+            return t
+    return '(profile.md is empty. No personal habits given yet: use a neutral natural tone and ask about preferences when it matters.)'
+
+
+def profile_block():
+    return chr(10) + chr(10) + 'USER PROFILE (the user own habits, follow them):' + chr(10) + load_profile()
+
+
+def ws_path(rel):
+    root = WORKSPACE.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    full = (root / rel).resolve()
+    if full != root and root not in full.parents:
+        raise ValueError('path escapes the workspace folder')
+    return full
+
+
+def list_files(a):
+    p = ws_path(a.get('path', '.'))
+    names = sorted(x.name + ('/' if x.is_dir() else '') for x in p.iterdir())
+    return chr(10).join(names) or '(empty)'
+
+
+def read_file(a):
+    return ws_path(a['path']).read_text(encoding='utf-8')
+
+
+def write_file(a):
+    p = ws_path(a['path'])
+    if p.exists() and not a.get('overwrite'):
+        return 'Error: file already exists. Use another name, or set overwrite to true only if the user asked for it.'
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(a['content'], encoding='utf-8')
+    return 'Wrote ' + str(len(a['content'])) + ' chars to workspace/' + a['path']
+
+
+HANDLERS.update({'list_files': list_files, 'read_file': read_file, 'write_file': write_file})
+
+# web_search and fetch_page are the first two entries of TOOLS.
+CHAT_TOOLS = TOOLS[:2] + [
+    {'name': 'list_files', 'description': 'List files in the workspace folder (or a subfolder).',
+     'input_schema': {'type': 'object', 'properties': {'path': {'type': 'string'}}, 'required': []}},
+    {'name': 'read_file', 'description': 'Read a UTF-8 text file from the workspace folder.',
+     'input_schema': {'type': 'object', 'properties': {'path': {'type': 'string'}}, 'required': ['path']}},
+    {'name': 'write_file',
+     'description': 'Save a UTF-8 text file in the workspace folder, for example a draft, notes or a list. Refuses to overwrite unless overwrite is true.',
+     'input_schema': {'type': 'object',
+                      'properties': {'path': {'type': 'string'}, 'content': {'type': 'string'}, 'overwrite': {'type': 'boolean'}},
+                      'required': ['path', 'content']}},
+]
+
+
+def research_system():
+    return (SYSTEM + ' The report body stays factual and neutral, but follow the formatting, language and work preferences in the profile.'
+            + profile_block())
+
+
+def chat_system():
+    return (
+        'You are the personal assistant of the user. Anything you write as an answer, reply, draft, message or note is written in the USER OWN VOICE: '
+        'first person, as if the user wrote it, following the habits in the profile below (tone, wording, sentence length, forms of address, formatting). '
+        'Short process remarks to the user, such as what you did, what you could not verify, or a question you need answered, stay plain and clear. '
+        'Think like a careful, thorough assistant: before answering, work out the real goal behind the request, the relevant angles, risks, edge cases, '
+        'alternatives and anything the user may have overlooked. Check facts with web_search and fetch_page instead of guessing, and give the source link when you rely on the web. '
+        'Then give a detailed, well-organized answer that states its assumptions explicitly. '
+        'Never invent facts, experiences, commitments, opinions or numbers the user has not given you. If a personal fact is missing, put a clear placeholder like [待确认: ...] or ask. '
+        'Anything meant for other people is a draft: label it as a draft and never claim it was sent. Do not take actions that cannot be undone. '
+        'File tools only work inside the workspace folder, and you never overwrite files unless asked. Reply in the language of the user. '
+        'Today is ' + datetime.now(timezone.utc).strftime('%Y-%m-%d') + '.' + profile_block()
+    )
+
+
+def run_turn(client, messages, system, tools):
     for _ in range(MAX_STEPS):
-        resp = client.messages.create(model=MODEL, max_tokens=16000, system=SYSTEM, tools=TOOLS, messages=messages)
+        resp = client.messages.create(model=MODEL, max_tokens=16000, system=system, tools=tools, messages=messages)
         messages.append({'role': 'assistant', 'content': resp.content})
         for b in resp.content:
             if b.type == 'text' and b.text.strip():
@@ -232,16 +311,43 @@ def research(client, topic):
     print('[stopped: reached the max number of steps]')
 
 
+def research(client, topic):
+    messages = [{'role': 'user', 'content': 'Research topic: ' + topic}]
+    run_turn(client, messages, research_system(), TOOLS)
+
+
+def chat(client):
+    messages = []
+    print('Assistant mode. Workspace: ' + str(WORKSPACE) + '. Type exit to quit.')
+    while True:
+        try:
+            user = input('you> ').strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if user in ('exit', 'quit'):
+            break
+        if user:
+            messages.append({'role': 'user', 'content': user})
+            run_turn(client, messages, chat_system(), CHAT_TOOLS)
+
+
 def main():
     if not os.environ.get('ANTHROPIC_API_KEY'):
         sys.exit('Set ANTHROPIC_API_KEY first.')
     if not MODEL:
         sys.exit('Set ANTHROPIC_MODEL to the model ID you want to use.')
     import anthropic
-    topic = ' '.join(sys.argv[1:]).strip() or input('Research topic> ').strip()
+    client = anthropic.Anthropic()
+    args = sys.argv[1:]
+    if not args or args[0] == 'chat':
+        chat(client)
+        return
+    if args[0] == 'research':
+        args = args[1:]
+    topic = ' '.join(args).strip() or input('Research topic> ').strip()
     if not topic:
         sys.exit('No topic given.')
-    research(anthropic.Anthropic(), topic)
+    research(client, topic)
 
 
 if __name__ == '__main__':

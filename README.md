@@ -25,3 +25,12 @@ The report includes disagreements between sources and a gaps and uncertainties s
 Copy .env.example to .env and fill in ANTHROPIC_API_KEY and ANTHROPIC_MODEL. The agent reads .env on startup, and .env is git-ignored.
 
 If your key comes from a third-party or proxy service, also set ANTHROPIC_BASE_URL in .env to that service address. The built-in web_search tool may not be supported by such services.
+
+## Modes
+
+- Research mode: `python agent.py research 'topic'` (or just `python agent.py 'topic'`) writes a cited report to reports/.
+- Assistant mode: `python agent.py chat` (also the default with no arguments) handles simple everyday work. Drafts, replies and notes are written in your own voice, following profile.md.
+
+## Personal profile
+
+Copy profile.example.md to profile.md and describe your speaking and working habits. profile.md is git-ignored, so it is never pushed. Assistant mode can use web search, and reads and writes files only inside the workspace/ folder.
