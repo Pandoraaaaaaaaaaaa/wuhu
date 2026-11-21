@@ -46,7 +46,7 @@ def now():
 SYSTEM = (
     'You are a careful research agent. Given a topic, produce an in-depth, well-sourced report. '
     'Workflow: 1) break the topic into 3-6 sub-questions; '
-    '2) use web_search to find sources and fetch_page to read the most important pages in full instead of relying on snippets; '
+    '2) use web_search to find sources and fetch_page to read the most important pages in full instead of relying on snippets; if a fetch_page result says more remains, keep calling it with the offset it gives until you have read what you need; '
     '3) call save_source for EVERY source you rely on, right after reading it, and use the returned id; '
     '4) when the evidence is sufficient, call write_report exactly once. '
     'Rules: only state what a saved source supports and cite it inline like [1][2]; if nothing reliable is found, say so. '
@@ -62,8 +62,8 @@ SYSTEM = (
 TOOLS = [
     {'type': 'web_search_20250305', 'name': 'web_search', 'max_uses': MAX_SEARCHES},
     {'name': 'fetch_page',
-     'description': 'Download a public web page and return its title and main text (truncated). HTML and plain text only.',
-     'input_schema': {'type': 'object', 'properties': {'url': {'type': 'string'}}, 'required': ['url']}},
+     'description': 'Download a public web page and return its title and main text, up to 12000 characters per call. If the result says more remains, call again with the offset it gives. HTML and plain text only.',
+     'input_schema': {'type': 'object', 'properties': {'url': {'type': 'string'}, 'offset': {'type': 'integer', 'description': 'Character offset to continue from, default 0'}}, 'required': ['url']}},
     {'name': 'save_source',
      'description': 'Record a source you will rely on. Returns its numeric id, used as [id] in the report.',
      'input_schema': {'type': 'object',
@@ -146,8 +146,15 @@ def fetch_page(a):
         title = p.title.strip()
     lines = [' '.join(x.split()) for x in text.splitlines()]
     body = chr(10).join(x for x in lines if x)
-    note = chr(10) + '[truncated]' if len(body) > MAX_PAGE_CHARS else ''
-    return 'Title: ' + title + chr(10) + 'URL: ' + url + chr(10) + chr(10) + body[:MAX_PAGE_CHARS] + note
+    offset = max(int(a.get('offset') or 0), 0)
+    total = len(body)
+    chunk = body[offset:offset + MAX_PAGE_CHARS]
+    end = offset + len(chunk)
+    if end < total:
+        note = chr(10) + '[showing chars ' + str(offset) + '-' + str(end) + ' of ' + str(total) + '. More remains: call fetch_page again with offset=' + str(end) + ']'
+    else:
+        note = chr(10) + '[end of page, ' + str(total) + ' chars in total]'
+    return 'Title: ' + title + chr(10) + 'URL: ' + url + chr(10) + chr(10) + chunk + note
 
 
 def save_source(a):
