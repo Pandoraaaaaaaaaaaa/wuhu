@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "url": "https://www.python.org/downloads/",
+    "title": "Download Python | Python.org",
+    "publisher": "Python Software Foundation",
+    "published": "2026-10-25",
+    "type": "primary",
+    "excerpt": "页面显示最新版本为 Python 3.15.2（2026-10-25 发布）；3.15.0 于 2026-10-09 首次发布，状态为 bugfix，支持期至 2031-10；3.16 处于预发布阶段（计划 2027-10-06 发布）。",
+    "accessed": "2026-11-21 12:18 UTC"
+  },
+  {
+    "id": 2,
+    "url": "https://docs.python.org/3/whatsnew/index.html",
+    "title": "What's New in Python — Python 3.15.2 documentation",
+    "publisher": "Python Software Foundation",
+    "published": "2026-10-25",
+    "type": "primary",
+    "excerpt": "官方文档索引，列出 What's new in Python 3.15 的章节：发布亮点、新特性、其他语言变更、默认交互式 shell、新模块、改进的模块、优化、移除、弃用、C API 变更、构建变更、移植到 3.15 等。",
+    "accessed": "2026-11-21 12:18 UTC"
+  },
+  {
+    "id": 3,
+    "url": "https://docs.python.org/3/whatsnew/3.15.html",
+    "title": "What's new in Python 3.15 — Python 3.15.2 documentation",
+    "publisher": "Python Software Foundation",
+    "published": "2026-10-09",
+    "type": "primary",
+    "excerpt": "官方说明 Python 3.15 于 2026-10-09 发布，是当前最新稳定版。主要亮点包括：PEP 810 显式惰性导入（lazy 软关键字，-X lazy_imports、PYTHON_LAZY_IMPORTS、sys.set_lazy_imports 等控制方式，仅限模块作用域）；PEP 814 内置不可变类型 frozendict（不是 dict 子类，可哈希，保留插入顺序）；PEP 661 内置 sentinel 类型；PEP 686 默认使用 UTF-8 编码；PEP 798 推导式中的解包；PEP 829 包启动配置文件；PEP 799 新的 profiling 包及 Tachyon 高频统计采样分析器（profile 模块已弃用，计划 3.17 移除）；升级后的实验性 JIT 编译器；改进的错误信息与更多命令行彩色输出；类型系统新增 PEP 728（TypedDict 带类型的额外项）、PEP 747（TypeForm）、PEP 800（不相交基类）；C API 方面有 PEP 782 PyBytesWriter、PEP 788 解释器终结保护、PEP 803/820/793 自由线程构建的稳定 ABI；构建方面 PEP 831 默认启用帧指针；发布层面，Windows 64 位官方二进制使用 tail-calling 解释器，macOS 官方二进制默认安装自由",
+    "accessed": "2026-11-21 12:19 UTC"
+  }
+]
