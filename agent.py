@@ -361,7 +361,7 @@ def export_file(a):
                 st = ParagraphStyle('h' + str(level), parent=body, fontSize=sizes[level], leading=sizes[level] + 8, spaceBefore=8, spaceAfter=6)
                 add_wrapped(story, st, text, 430)
             elif x.startswith('- '):
-                add_wrapped(story, ParagraphStyle('bullet', parent=body, leftIndent=14), '• ' + x[2:], 416)
+                add_wrapped(story, ParagraphStyle('bullet', parent=body, leftIndent=14), '● ' + x[2:], 416)
             else:
                 add_wrapped(story, body, x, 430)
         if not story:
