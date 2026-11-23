@@ -276,6 +276,74 @@ CHAT_TOOLS = TOOLS[:2] + [
 ]
 
 
+def export_file(a):
+    fmt = str(a.get('format', '')).lower()
+    if fmt not in ('docx', 'pdf'):
+        return 'Error: format must be docx or pdf'
+    name = a['path']
+    if not name.lower().endswith('.' + fmt):
+        name += '.' + fmt
+    p = ws_path(name)
+    if p.exists() and not a.get('overwrite'):
+        return 'Error: file already exists. Use another name, or set overwrite to true only if the user asked for it.'
+    p.parent.mkdir(parents=True, exist_ok=True)
+    title = str(a.get('title', '')).strip()
+    lines = [x.rstrip() for x in a['content'].splitlines() if x.strip()]
+    if fmt == 'docx':
+        import docx
+        d = docx.Document()
+        if title:
+            d.add_heading(title, 0)
+        for x in lines:
+            if x.startswith('#'):
+                level = min(len(x) - len(x.lstrip('#')), 3)
+                d.add_heading(x.lstrip('#').strip(), level)
+            elif x.startswith('- '):
+                d.add_paragraph(x[2:], style='List Bullet')
+            else:
+                d.add_paragraph(x)
+        d.save(str(p))
+    else:
+        from xml.sax.saxutils import escape
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+        body = ParagraphStyle('body', fontName='STSong-Light', fontSize=11, leading=18, wordWrap='CJK', spaceAfter=4)
+        bullet = ParagraphStyle('bullet', parent=body, leftIndent=14)
+        sizes = {0: 20, 1: 16, 2: 14, 3: 12}
+        story = []
+        if title:
+            story.append(Paragraph(escape(title), ParagraphStyle('title', parent=body, fontSize=sizes[0], leading=28, spaceAfter=10)))
+        for x in lines:
+            if x.startswith('#'):
+                level = min(len(x) - len(x.lstrip('#')), 3)
+                st = ParagraphStyle('h' + str(level), parent=body, fontSize=sizes[level], leading=sizes[level] + 8, spaceBefore=8, spaceAfter=6)
+                story.append(Paragraph(escape(x.lstrip('#').strip()), st))
+            elif x.startswith('- '):
+                story.append(Paragraph('• ' + escape(x[2:]), bullet))
+            else:
+                story.append(Paragraph(escape(x), body))
+        if not story:
+            story.append(Spacer(1, 12))
+        SimpleDocTemplate(str(p), pagesize=A4, title=title or p.stem).build(story)
+    return 'Exported to workspace/' + name
+
+
+HANDLERS.update({'export_file': export_file})
+CHAT_TOOLS.append({'name': 'export_file',
+                   'description': 'Save the final deliverable as a Word (docx) or PDF file in the workspace folder. Content is plain text: lines starting with # become headings, lines starting with - become bullets. Refuses to overwrite unless overwrite is true.',
+                   'input_schema': {'type': 'object',
+                                    'properties': {'path': {'type': 'string'},
+                                                   'format': {'type': 'string', 'enum': ['docx', 'pdf']},
+                                                   'title': {'type': 'string'},
+                                                   'content': {'type': 'string'},
+                                                   'overwrite': {'type': 'boolean'}},
+                                    'required': ['path', 'format', 'content']}})
+
+
 def research_system():
     return (SYSTEM + ' The report body stays factual and neutral, but follow the formatting, language and work preferences in the profile.'
             + profile_block())
@@ -289,7 +357,7 @@ WORKFLOW = (
     '4) Gather information with web_search and fetch_page when needed, and give the source links. '
     '5) Only then do the work. Do not start step 5 before the questions in steps 1 and 2 are answered. '
     'For a trivial question that needs no deliverable, just answer directly. '
-    'Never use an impolite tone or impolite wording, not even in drafts. The user prefers Word or PDF for deliverable files. '
+    'Never use an impolite tone or impolite wording, not even in drafts. The user prefers Word or PDF for deliverable files: when a deliverable is ready, save it with export_file (format docx or pdf) instead of write_file. '
 )
 
 
