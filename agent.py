@@ -276,6 +276,43 @@ CHAT_TOOLS = TOOLS[:2] + [
 ]
 
 
+CANNOT_START = set('，。、；：？！）」』】》〉,.;:?!)]}%～…—·')
+CANNOT_END = set('（「『【《〈([{')
+
+
+def wrap_lines(text, font, size, width):
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    lines, cur = [], ''
+    for ch in text:
+        if cur and stringWidth(cur + ch, font, size) > width and ch not in CANNOT_START and ch != ' ':
+            if cur[-1] in CANNOT_END and len(cur) > 1:
+                lines.append(cur[:-1])
+                cur = cur[-1] + ch
+            else:
+                lines.append(cur)
+                cur = ch
+        else:
+            cur += ch
+    if cur:
+        lines.append(cur)
+    return [x.strip() for x in lines if x.strip()]
+
+
+def add_wrapped(story, style, text, width):
+    from xml.sax.saxutils import escape
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph
+    parts = wrap_lines(text, style.fontName, style.fontSize, width)
+    for i, part in enumerate(parts):
+        kw = {}
+        if i > 0:
+            kw['spaceBefore'] = 0
+        if i < len(parts) - 1:
+            kw['spaceAfter'] = 0
+        st = ParagraphStyle('line' + str(i), parent=style, **kw) if kw else style
+        story.append(Paragraph(escape(part), st))
+
+
 def export_file(a):
     fmt = str(a.get('format', '')).lower()
     if fmt not in ('docx', 'pdf'):
@@ -304,28 +341,29 @@ def export_file(a):
                 d.add_paragraph(x)
         d.save(str(p))
     else:
-        from xml.sax.saxutils import escape
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Spacer
         pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
         body = ParagraphStyle('body', fontName='STSong-Light', fontSize=11, leading=18, wordWrap='CJK', spaceAfter=4)
-        bullet = ParagraphStyle('bullet', parent=body, leftIndent=14)
         sizes = {0: 20, 1: 16, 2: 14, 3: 12}
         story = []
         if title:
-            story.append(Paragraph(escape(title), ParagraphStyle('title', parent=body, fontSize=sizes[0], leading=28, spaceAfter=10)))
+            add_wrapped(story, ParagraphStyle('title', parent=body, fontSize=sizes[0], leading=28, spaceAfter=10), title, 430)
         for x in lines:
             if x.startswith('#'):
                 level = min(len(x) - len(x.lstrip('#')), 3)
+                text = x.lstrip('#').strip()
+                if title and text == title.strip():
+                    continue
                 st = ParagraphStyle('h' + str(level), parent=body, fontSize=sizes[level], leading=sizes[level] + 8, spaceBefore=8, spaceAfter=6)
-                story.append(Paragraph(escape(x.lstrip('#').strip()), st))
+                add_wrapped(story, st, text, 430)
             elif x.startswith('- '):
-                story.append(Paragraph('• ' + escape(x[2:]), bullet))
+                add_wrapped(story, ParagraphStyle('bullet', parent=body, leftIndent=14), '• ' + x[2:], 416)
             else:
-                story.append(Paragraph(escape(x), body))
+                add_wrapped(story, body, x, 430)
         if not story:
             story.append(Spacer(1, 12))
         SimpleDocTemplate(str(p), pagesize=A4, title=title or p.stem).build(story)
@@ -357,22 +395,36 @@ WORKFLOW = (
     '4) Gather information with web_search and fetch_page when needed, and give the source links. '
     '5) Only then do the work. Do not start step 5 before the questions in steps 1 and 2 are answered. '
     'For a trivial question that needs no deliverable, just answer directly. '
-    'Never use an impolite tone or impolite wording, not even in drafts. The user prefers Word or PDF for deliverable files: when a deliverable is ready, save it with export_file (format docx or pdf) instead of write_file. '
+    'Never use an impolite tone or impolite wording, not even in drafts. When the user asks for a file or the deliverable is a long document, prefer Word or PDF via export_file; otherwise answer directly in the chat. '
+)
+
+
+RULES = (
+    ' REPLY RULES (these override anything earlier in this prompt). '
+    '1) Two voices. Everything you say TO the user (questions, status, assumptions, confirmations) is plain, normal speech: no tilde, no profile catchphrases, no imitation of the profile style. '
+    'Only the text written FOR other people (a reply, message, draft or note) uses the profile voice. '
+    'Put that text between a line that says ---草稿开始--- and a line that says ---草稿结束---, and write nothing in the profile voice outside those two lines. '
+    '2) Answer directly in the chat. Do not create a file for a reply or a short draft. Use export_file or write_file only when the user asks for a file or the deliverable is a long document such as a report; in that case prefer Word or PDF. '
+    '3) Missing information. If it is about the user (their own facts, what they did or plan, their commitments, opinions, relationships, schedule, or what the other person asked of them), ask the user before drafting and never guess. '
+    'If it is not about the user (wording, structure, order, general background, formatting, small choices), decide it yourself with good judgment and mention the choice in one short line outside the draft. '
+    'Do not leave placeholders such as [待确认] unless the user asked for a blank. '
+    '4) Write only the facts, actions and commitments the user stated. Do not add claims such as having read something carefully, or promises to act in a certain way, unless the user said so. '
+    '5) For a draft addressed to a specific person, make sure you know what that person requires. If the user has not said, ask first. '
 )
 
 
 def chat_system():
     return (
-        'You are the personal assistant of the user. Anything you write as an answer, reply, draft, message or note is written in the USER OWN VOICE: '
+        'You are the personal assistant of the user. Anything you write FOR other people (a reply, draft, message or note) is written in the USER OWN VOICE: '
         'first person, as if the user wrote it, following the habits in the profile below (tone, wording, sentence length, forms of address, formatting). '
-        'Short process remarks to the user, such as what you did, what you could not verify, or a question you need answered, stay plain and clear. '
+        'Everything you say to the user stays plain, normal speech (see REPLY RULES). '
         'Think like a careful, thorough assistant: before answering, work out the real goal behind the request, the relevant angles, risks, edge cases, '
         'alternatives and anything the user may have overlooked. Check facts with web_search and fetch_page instead of guessing, and give the source link when you rely on the web. '
         'Then give a detailed, well-organized answer that states its assumptions explicitly. '
-        'Never invent facts, experiences, commitments, opinions or numbers the user has not given you. If a personal fact is missing, put a clear placeholder like [待确认: ...] or ask. '
+        'Never invent facts, experiences, commitments, opinions or numbers the user has not given you. If a fact about the user is missing, ask the user instead of guessing (see REPLY RULES). '
         'Anything meant for other people is a draft: label it as a draft and never claim it was sent. Do not take actions that cannot be undone. '
         'File tools only work inside the workspace folder, and you never overwrite files unless asked. Reply in the language of the user. '
-        'Today is ' + datetime.now(timezone.utc).strftime('%Y-%m-%d') + '.' + WORKFLOW + profile_block()
+        'Today is ' + datetime.now(timezone.utc).strftime('%Y-%m-%d') + '.' + WORKFLOW + RULES + profile_block()
     )
 
 
